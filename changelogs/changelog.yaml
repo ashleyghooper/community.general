@@ -1923,3 +1923,19 @@ releases:
       - 8925-atomic.yml
       - 9052-modprobe-bugfix.yml
     release_date: '2024-11-03'
+  7.6.0-backport-nmcli.1:
+    changes:
+      minor_changes:
+        - nmcli - add ``conn_reload`` param to reload connection (https://github.com/ansible-collections/community.general/issues/3752,
+          https://github.com/ansible-collections/community.general/issues/8704, https://github.com/ansible-collections/community.general/pull/8897).
+        - nmcli - add ``state=up`` and ``state=down`` to enable/disable connections
+          (https://github.com/ansible-collections/community.general/issues/3752, https://github.com/ansible-collections/community.general/issues/8704,
+      release_summary: "Backport release.
+
+
+        7.5.9 was the last upstream 7.x.y release. This release backports some
+        nmcli features to support idempotently live updating network interface
+        configuration."
+    fragments:
+      - 7.6.0-backport-nmcli.1.yml
+    release_date: "2025-03-14"

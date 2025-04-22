@@ -34,9 +34,12 @@ options:
     state:
         description:
             - Whether the device should exist or not, taking action if the state is different from what is stated.
+            - Using O(state=present) to create connection will automatically bring connection up.
+            - Using O(state=up) and O(state=down) will not modify connection with other parameters. These states have been added
+                in community.general 9.5.0 and backported in version 7.6.0-backport-nmcli.1.
         type: str
         required: true
-        choices: [ absent, present ]
+        choices: [ absent, present, up, down ]
     autoconnect:
         description:
             - Whether the connection should start on boot.
@@ -48,6 +51,13 @@ options:
             - The name used to call the connection. Pattern is <type>[-<ifname>][-<num>].
         type: str
         required: true
+    conn_reload:
+        description:
+        - Whether the connection should be reloaded if it was modified.
+        type: bool
+        required: false
+        default: false
+        version_added: 7.6.0-backport-nmcli.1
     ifname:
         description:
             - The interface to bind the connection to.
@@ -1305,6 +1315,25 @@ EXAMPLES = r'''
       type: ethernet
       state: present
 
+  - name: Change the property of a setting e.g. MTU and reload connection
+    community.general.nmcli:
+      conn_name: my-eth1
+      mtu: 1500
+      type: ethernet
+      state: present
+      conn_reload: true
+
+  - name: Disable connection
+    community.general.nmcli:
+      conn_name: my-eth1
+      state: down
+
+  - name: Reload and enable connection
+    community.general.nmcli:
+      conn_name: my-eth1
+      state: up
+      conn_reload: true
+
   - name: Add second ip4 address
     community.general.nmcli:
       conn_name: my-eth1
@@ -1551,6 +1580,7 @@ class Nmcli(object):
         self.ignore_unsupported_suboptions = module.params['ignore_unsupported_suboptions']
         self.autoconnect = module.params['autoconnect']
         self.conn_name = module.params['conn_name']
+        self.conn_reload = module.params['conn_reload']
         self.slave_type = module.params['slave_type']
         self.master = module.params['master']
         self.ifname = module.params['ifname']
@@ -2123,6 +2153,10 @@ class Nmcli(object):
         cmd = [self.nmcli_bin, 'con', 'up', self.conn_name]
         return self.execute_command(cmd)
 
+    def reload_connection(self):
+        cmd = [self.nmcli_bin, 'con', 'reload']
+        return self.execute_command(cmd)
+
     def connection_update(self, nmcli_command):
         if nmcli_command == 'create':
             cmd = [self.nmcli_bin, 'con', 'add', 'type']
@@ -2341,7 +2375,7 @@ class Nmcli(object):
 
             if isinstance(current_value, list) and isinstance(value, list):
                 # compare values between two lists
-                if key in ('ipv4.addresses', 'ipv6.addresses'):
+                if key in ('ipv4.addresses', 'ipv6.addresses', 'ipv4.dns', 'ipv6.dns', 'ipv4.dns-search', 'ipv6.dns-search'):
                     # The order of IP addresses matters because the first one
                     # is the default source address for outbound connections.
                     changed |= current_value != value
@@ -2389,8 +2423,9 @@ def main():
         argument_spec=dict(
             ignore_unsupported_suboptions=dict(type='bool', default=False),
             autoconnect=dict(type='bool', default=True),
-            state=dict(type='str', required=True, choices=['absent', 'present']),
+            state=dict(type='str', required=True, choices=['absent', 'present', 'up', 'down']),
             conn_name=dict(type='str', required=True),
+            conn_reload=dict(type='bool', default=False),
             master=dict(type='str'),
             slave_type=dict(type='str', choices=['bond', 'bridge', 'team']),
             ifname=dict(type='str'),
@@ -2593,6 +2628,8 @@ def main():
                     if module.check_mode:
                         module.exit_json(changed=True, **result)
                     (rc, out, err) = nmcli.modify_connection()
+                    if nmcli.conn_reload:
+                        (rc, out, err) = nmcli.reload_connection()
                 else:
                     result['Exists'] = 'Connections already exist and no changes made'
                     if module.check_mode:
@@ -2604,6 +2641,35 @@ def main():
                 (rc, out, err) = nmcli.create_connection()
             if rc is not None and rc != 0:
                 module.fail_json(name=nmcli.conn_name, msg=err, rc=rc)
+
+        elif nmcli.state == "up":
+            if nmcli.connection_exists():
+                if module.check_mode:
+                    module.exit_json(changed=True)
+                if nmcli.conn_reload:
+                    (rc, out, err) = nmcli.reload_connection()
+                (rc, out, err) = nmcli.up_connection()
+                if rc != 0:
+                    module.fail_json(
+                        name=("No Connection named %s exists" % nmcli.conn_name),
+                        msg=err,
+                        rc=rc,
+                    )
+
+        elif nmcli.state == "down":
+            if nmcli.connection_exists():
+                if module.check_mode:
+                    module.exit_json(changed=True)
+                if nmcli.conn_reload:
+                    (rc, out, err) = nmcli.reload_connection()
+                (rc, out, err) = nmcli.down_connection()
+                if rc != 0:
+                    module.fail_json(
+                        name=("No Connection named %s exists" % nmcli.conn_name),
+                        msg=err,
+                        rc=rc,
+                    )
+
     except NmcliModuleError as e:
         module.fail_json(name=nmcli.conn_name, msg=str(e))
 

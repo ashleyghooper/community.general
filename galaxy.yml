@@ -3,9 +3,9 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-namespace: community
+namespace: anophelesgreyhoe
 name: general
-version: 7.5.9
+version: 7.6.0-backport-nmcli.1
 readme: README.md
 authors:
   - Ansible (https://github.com/ansible)
@@ -14,8 +14,8 @@ license_file: COPYING
 tags: [community]
 # NOTE: No dependencies are expected to be added here
 # dependencies:
-repository: https://github.com/ansible-collections/community.general
+repository: https://github.com/ashleyghooper/community.general
 documentation: https://docs.ansible.com/ansible/latest/collections/community/general/
-homepage: https://github.com/ansible-collections/community.general
-issues: https://github.com/ansible-collections/community.general/issues
+homepage: https://github.com/ashleyghooper/community.general
+issues: https://github.com/ashleyghooper/community.general/issues
 #type: flatmap
